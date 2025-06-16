@@ -1,2 +1,5 @@
 venv
 **/venv
+readonly-kubeconfig
+tester/readonly-kubeconfig
+tester/
