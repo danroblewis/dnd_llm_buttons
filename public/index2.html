@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>D&D Text Adventure</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/sindresorhus/github-markdown-css@4/github-markdown.min.css">
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: sans-serif;
+            line-height: 1.6;
+        }
+        .history {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            /* display: none; */
+        }
+        .choices {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        button {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4a4a4a;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #666;
+        }
+        button:disabled {
+            background: #7a8594;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .message {
+            transition: opacity 0.3s;
+        }
+        .dm-description {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .dm-description h3 {
+            margin-top: 0;
+        }
+        .dm-description ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="voice-speed-container" style="margin: 20px 0;">
+        <label for="voice-speed">Voice Speed: </label>
+        <input type="range" id="voice_speed" min="0" max="5" value="1.7" step="0.1" style="width: 200px;">
+    </div>
+    <div class="history" id="history"></div>
+    <div class="choices" id="choices"></div>
+
+    <script>
+        function renderDMDescription(description) {
+            try {
+                return `
+                    <div class="dm-description">
+                        <h3>Debug Master Insights</h3>
+                        <p><strong>Current Symptoms:</strong></p>
+                        <ul>${description.current_symptoms.map(s => `<li>${s}</li>`).join('')}</ul>
+                        <p><strong>Verified Facts:</strong></p>
+                        <ul>${description.verified_facts.map(f => `<li>${f}</li>`).join('')}</ul>
+                        <p><strong>Suspected Causes:</strong></p>
+                        <ul>${description.suspected_causes.map(c => `<li>${c}</li>`).join('')}</ul>
+                        <p><strong>Areas to Investigate:</strong></p>
+                        <ul>${description.next_areas.map(a => `<li>${a}</li>`).join('')}</ul>
+                        <p><strong>Command History:</strong></p>
+                        <ul>${description.command_history.map(c => `<li>${c}</li>`).join('')}</ul>
+                        <p><strong>System State:</strong> ${description.system_state}</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error rendering DM description:', error);
+                return '<div class="dm-description">Error rendering description</div>';
+            }
+        }
+
+        async function makeChoice(choice) {
+            // Disable all buttons while request is in flight
+            const buttons = document.querySelectorAll('#choices button');
+            buttons.forEach(button => button.disabled = true);
+
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: choice
+                })
+            });
+            const data = await response.json();
+            
+            // Update history
+            const historyDiv = document.getElementById('history');
+            historyDiv.innerHTML = ''; // Clear all history
+
+            // Only show last 100 lines
+            const historyLines = data.history.slice(-100);
+            historyLines.forEach((msg, index) => {
+                const maxlen = 500;
+                const speaker = msg.type === 'ai' ? 'DM' : (msg.type === 'tool' ? 'Command' : 'You');
+                const opacity = 0.4 + ((index / historyLines.length) * 0.6); // Ranges from 0.4 to 1.0
+                
+                let messageContent;
+                try {
+                    const parsed = JSON.parse(msg.content);
+                    if (parsed.current_symptoms && parsed.verified_facts && parsed.suspected_causes && parsed.next_areas && parsed.command_history && parsed.system_state) {
+                        messageContent = renderDMDescription(parsed);
+                    } else {
+                        messageContent = marked.parse(msg.content);
+                    }
+                } catch (e) {
+                    messageContent = msg.content ? marked.parse(msg.content.length > maxlen ? msg.content.slice(0,maxlen) + "..." : msg.content) : '';
+                }
+
+                // const messageHtml = `<p class="message" style="opacity: ${opacity}"><strong>${speaker}:</strong> ${messageContent}</p>`;
+                const messageHtml = `<p class="message" style="opacity: ${opacity}"> ${messageContent}</p>`;
+                historyDiv.innerHTML += messageHtml;
+            });
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+
+            // Update choices by replacing existing ones
+            const choicesDiv = document.getElementById('choices');
+            choicesDiv.innerHTML = '';
+            
+            data.choices.forEach(choiceText => {
+                const button = document.createElement('button');
+                const pre = document.createElement('pre');
+                // Remove ```bash and ``` from the start/end of the string
+                choiceText = choiceText.replace(/^```bash\n/, '').replace(/\n```$/, '');
+                pre.textContent = choiceText.substring(0, 300);
+                button.appendChild(pre);
+                button.addEventListener('click', () => makeChoice(choiceText));
+                choicesDiv.appendChild(button);
+            });
+
+            // Play audio if available
+            if (data.mp3_base64) {
+                if (window.currentAudio) {
+                    window.currentAudio.pause();
+                }
+                window.currentAudio = new Audio('data:audio/mp3;base64,' + data.mp3_base64);
+                window.currentAudio.playbackRate = document.getElementById('voice_speed').value;
+                window.currentAudio.play().catch(err => {
+                    console.error('Error playing audio:', err);
+                });
+            }
+        }
+
+        makeChoice('');
+    </script>
+</body>
+</html>
