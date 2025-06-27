@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>D&D Text Adventure</title>
+    <style>
+        :root {
+            --lcars-orange: #ff9900;
+            --lcars-pink: #ff6699;
+            --lcars-purple: #cc99cc;
+            --lcars-blue: #9999ff;
+            --lcars-brown: #cc9966;
+            --lcars-red: #cc6666;
+            --lcars-beige: #ff9966;
+            --lcars-lightblue: #9999cc;
+            --lcars-yellow: #ffcc00;
+        }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: "Helvetica Neue", sans-serif;
+            line-height: 1.6;
+            background: #000;
+            color: #fff;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .sidebar {
+            width: 280px;
+            padding: 20px;
+            border-radius: 0 16px 16px 0;
+            max-height: 90vh;
+            overflow-y: auto;
+            background: var(--lcars-blue);
+            position: relative;
+        }
+        
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 100%;
+            background: var(--lcars-orange);
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .sidebar h2 {
+            color: #000;
+            font-size: 1.5em;
+            margin: 0 0 20px 30px;
+            text-transform: uppercase;
+        }
+        
+        .sidebar-section {
+            margin: 10px 0 10px 30px;
+            background: #000;
+            padding: 10px;
+            border-radius: 16px 0 0 16px;
+        }
+        
+        .sidebar-section h3 {
+            color: var(--lcars-orange);
+            margin: 0 0 5px 0;
+            font-size: 1em;
+            text-transform: uppercase;
+        }
+        
+        .sidebar-section.highlight {
+            background: var(--lcars-pink);
+            animation: lcarsHighlight 2s forwards;
+        }
+
+        @keyframes lcarsHighlight {
+            0%, 40% {
+                background: var(--lcars-pink);
+            }
+            100% {
+                background: #000;
+            }
+        }
+        
+        .pill {
+            background: var(--lcars-orange);
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 16px;
+            display: inline-block;
+            margin: 2px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .pill-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .main-content {
+            flex: 1;
+            max-width: 800px;
+            background: #000;
+            border: 2px solid var(--lcars-blue);
+            border-radius: 16px;
+            padding: 20px;
+        }
+        
+        .choices {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+        
+        .choice-button {
+            display: inline-block;
+            flex-grow: 0;
+            min-width: fit-content;
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            color: #000;
+            border: none;
+            border-radius: 16px;
+            text-align: left;
+            transition: all 0.2s;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .choice-button:hover {
+            filter: brightness(120%);
+            transform: scale(1.05);
+        }
+        
+        .choice-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        .message {
+            transition: opacity 0.3s;
+            padding: 15px 15px 15px 30px;
+            border-radius: 16px;
+            background: transparent;
+            margin: 10px 0;
+            color: var(--lcars-yellow);
+            position: relative;
+        }
+
+        .computer-message {
+            border-left: 4px solid var(--lcars-blue);
+        }
+
+        .player-message {
+            border-left: 4px solid var(--lcars-orange); 
+        }
+
+        .dm-description {
+            background: transparent;
+            padding: 15px;
+            margin: 15px 0;
+            color: var(--lcars-yellow);
+            position: relative;
+        }
+        
+        .dm-description h3 {
+            margin-top: 0;
+            color: var(--lcars-yellow);
+            text-transform: uppercase;
+        }
+        
+        .dm-description ul {
+            margin: 5px 0;
+            padding-left: 20px;
+            list-style-type: none;
+        }
+        
+        .dm-description ul li::before {
+            content: "►";
+            color: var(--lcars-orange);
+            margin-right: 8px;
+        }
+        
+        .voice-speed-container {
+            background: var(--lcars-orange);
+            padding: 10px;
+            border-radius: 16px;
+            margin: 20px 0;
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 10px;
+            background: #000;
+            border-radius: 5px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--lcars-pink);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .sidebar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+            border-radius: 16px 0 0 0;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            display: none; /* Chrome, Safari and Opera */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar" id="story-state">
+            <div class="sidebar-section">
+                <h3>Narrative Beat</h3>
+                <div class="pill" id="narrative-beat"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Conflict Level</h3>
+                <div class="pill" id="conflict-level"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Stakes</h3>
+                <div class="pill" id="stakes"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Character Goals</h3>
+                <div class="pill-list" id="character-goals"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Obstacles</h3>
+                <div class="pill-list" id="obstacles"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Theme</h3>
+                <div class="pill" id="theme"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Symbolism</h3>
+                <div class="pill" id="symbolism"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Tone</h3>
+                <div class="pill" id="tone"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Pacing</h3>
+                <div class="pill" id="pacing"></div>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="voice-speed-container" style="margin: 20px 0; display: none;">
+                <label for="voice-speed">Voice Speed: </label>
+                <input type="range" id="voice_speed" min="0" max="5" value="1.3" step="0.1" style="width: 200px;">
+            </div>
+            <div class="history" id="history"></div>
+            <div class="choices" id="choices"></div>
+        </div>
+    </div>
+
+    <script>
+        const ambientSoundMap = {
+            'transporter beam': 'https://www.trekcore.com/audio/transporters/time_transporter_1.mp3',
+            'red alert': 'https://www.trekcore.com/audio/redalertandklaxons/voy_redalert.mp3',
+            'door swoosh': 'https://www.trekcore.com/audio/doors/tng_doors.mp3',
+            'phaser fire': 'https://www.trekcore.com/audio/weapons/tng_phaser_clean.mp3',
+            'warp engine': 'https://www.trekcore.com/audio/warp/tng_warp4_clean.mp3',
+            'computer beep': 'https://www.trekcore.com/audio/computer/computerbeep_46.mp3',
+            'tricorder scan': 'https://www.trekcore.com/audio/tricorder/tng_tricorder1.mp3',
+            'communicator chirp': 'https://www.trekcore.com/audio/communicator/tng_chirp_clean.mp3'
+        };
+
+        function updateAmbience(description) {
+            // Update background gradient based on ambient light
+            let gradientColor1, gradientColor2;
+            switch(description.ambient_light?.toLowerCase()) {
+                case 'dark':
+                    gradientColor1 = '#000000';
+                    gradientColor2 = '#111111';
+                    break;
+                case 'dim':
+                    gradientColor1 = '#111111';
+                    gradientColor2 = '#222222';
+                    break;
+                case 'bright':
+                    gradientColor1 = '#000000';
+                    gradientColor2 = '#333333';
+                    break;
+                default:
+                    gradientColor1 = '#000000';
+                    gradientColor2 = '#222222';
+            }
+            
+            document.body.style.background = `linear-gradient(135deg, ${gradientColor1}, ${gradientColor2})`;
+            document.body.style.transition = 'background 1s ease';
+
+            // Play ambient sounds and return a promise
+            return new Promise((resolve) => {
+                if (description.ambient_sounds) {
+                    const sound = description.ambient_sounds;
+                    const soundFile = ambientSoundMap[sound.toLowerCase()];
+                    if (soundFile) {
+                        const audio = new Audio(soundFile);
+                        audio.loop = false;
+                        audio.volume = 0.3;
+                        audio.addEventListener('ended', () => resolve());
+                        audio.play().catch(err => {
+                            console.error('Error playing ambient sound:', err);
+                            resolve();
+                        });
+                    } else {
+                        resolve();
+                    }
+                } else {
+                    resolve();
+                }
+            });
+        }
+
+        function updateStoryState(storyState) {
+            const colorMappings = {
+                narrativeBeat: {
+                    'exposition': 'var(--lcars-blue)',
+                    'rising action': 'var(--lcars-orange)', 
+                    'climax': 'var(--lcars-red)',
+                    'falling action': 'var(--lcars-purple)',
+                    'resolution': 'var(--lcars-beige)'
+                },
+                conflictLevel: {
+                    'low': 'var(--lcars-blue)',
+                    'medium': 'var(--lcars-orange)',
+                    'high': 'var(--lcars-red)',
+                    'critical': 'var(--lcars-purple)',
+                    'catastrophic': 'var(--lcars-brown)'
+                },
+                tone: {
+                    'heroic': 'var(--lcars-orange)',
+                    'tragic': 'var(--lcars-purple)',
+                    'comedic': 'var(--lcars-pink)',
+                    'mysterious': 'var(--lcars-blue)',
+                    'horrific': 'var(--lcars-red)',
+                    'romantic': 'var(--lcars-pink)',
+                    'epic': 'var(--lcars-beige)'
+                },
+                pacing: {
+                    'slow': 'var(--lcars-blue)',
+                    'moderate': 'var(--lcars-lightblue)',
+                    'fast': 'var(--lcars-orange)',
+                    'frantic': 'var(--lcars-red)'
+                }
+            };
+
+            function updateElement(elementId, value, colorType, defaultColor = 'var(--lcars-blue)') {
+                const element = document.getElementById(elementId);
+                element.textContent = value;
+                element.style.background = defaultColor;
+
+                if (element.textContent !== element.dataset.lastValue) {
+                    element.parentElement.classList.add('highlight');
+                    element.dataset.lastValue = element.textContent;
+                }
+                
+                if (colorMappings[colorType] && colorMappings[colorType][value]) {
+                    element.style.background = colorMappings[colorType][value];
+                }
+            }
+
+            updateElement('narrative-beat', storyState.narrative_beat, 'narrativeBeat');
+            updateElement('conflict-level', storyState.conflict_level, 'conflictLevel');
+            updateElement('stakes', storyState.stakes);
+
+            function renderPillList(containerId, items) {
+                const container = document.getElementById(containerId);
+                const lastItems = container.dataset.lastItems ? JSON.parse(container.dataset.lastItems) : [];
+                container.innerHTML = '';
+                items.forEach(item => {
+                    const pill = document.createElement('div');
+                    pill.className = 'pill';
+                    pill.textContent = item;
+                    if (!lastItems.includes(item)) {
+                        pill.classList.add('highlight');
+                    }
+                    container.appendChild(pill);
+                });
+                container.dataset.lastItems = JSON.stringify(items);
+            }
+
+            renderPillList('character-goals', storyState.character_goals);
+            renderPillList('obstacles', storyState.obstacles);
+
+            updateElement('theme', storyState.theme);
+            updateElement('symbolism', storyState.symbolism);
+            updateElement('tone', storyState.tone, 'tone');
+            updateElement('pacing', storyState.pacing, 'pacing');
+
+            setTimeout(() => {
+                document.querySelectorAll('.highlight').forEach(el => {
+                    el.classList.remove('highlight');
+                });
+            }, 5000);
+        }
+
+        function renderDMDescription(description) {
+            try {
+                return `
+                    <div class="dm-description">
+                        <h3>Location: ${description.location}</h3>
+                        <p><strong>Ambient Light:</strong> ${description.ambient_light}</p>
+                        <p><strong>Enemies:</strong> ${description.enemies.map(e => `<span>${e}</li>`).join('')}</p>
+                        <p><strong>Treasures:</strong></p>
+                        <ul>${description.treasures.map(t => `<li>${t}</li>`).join('')}</ul>
+                        <p><strong>Ambient Sounds:</strong> <span class="ambient-sound">${description.ambient_sounds}</span></p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error rendering DM description:', error);
+                return '<div class="dm-description">Error rendering description</div>';
+            }
+        }
+
+        function showEndModal(end_reason) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--lcars-orange);
+                padding: 20px;
+                border-radius: 16px;
+                box-shadow: 0 0 20px rgba(255,153,0,0.3);
+                z-index: 1000;
+                text-align: center;
+                color: #000;
+            `;
+            modal.innerHTML = `
+                <h2>The End</h2>
+                <p>Your adventure has come to an end.</p>
+                <p>${end_reason}</p>
+            `;
+            document.body.appendChild(modal);
+
+            document.querySelectorAll('button, input').forEach(el => el.disabled = true);
+            document.getElementById('choices').style.display = 'none';
+        }
+
+        async function makeChoice(choice) {
+            const buttons = document.querySelectorAll('#choices button');
+            buttons.forEach(button => button.disabled = true);
+
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: choice
+                })
+            });
+            const data = await response.json();
+            
+            if (data.end && data.end.answer === true) {
+                showEndModal(data.end_reason);
+                return;
+            }
+
+            if (data.story_state) {
+                updateStoryState(data.story_state);
+            }
+
+            const historyDiv = document.getElementById('history');
+            historyDiv.innerHTML = '';
+            const historyLines = data.history.slice(-100);
+            
+            const lastDMIndex = historyLines.findLastIndex(msg => msg.type === 'ai');
+
+            // Find the DM description message if it exists
+            let dmDescriptionMessage = null;
+            historyLines.forEach(msg => {
+                if (msg.location && msg.enemies && msg.treasures) {
+                    dmDescriptionMessage = msg;
+                }
+            });
+
+            // If we found a DM description, render it first and update ambience
+            let ambiencePromise = Promise.resolve();
+            if (dmDescriptionMessage) {
+                historyDiv.innerHTML += renderDMDescription(dmDescriptionMessage);
+                ambiencePromise = updateAmbience(dmDescriptionMessage);
+            }
+
+            // Then render the rest of the messages
+            historyLines.forEach((msg, index) => {
+                // Skip the DM description since we already rendered it
+                if (msg === dmDescriptionMessage) return;
+
+                const maxlen = 500;
+                const speaker = msg.type === 'ai' ? '' : 'Player';
+                const opacity = 0.4 + ((index / historyLines.length) * 0.6);
+                
+                let messageContent = msg.content ? (msg.content.length > maxlen ? msg.content.slice(0,maxlen) + "..." : msg.content) : '';
+
+                let style = `opacity: ${opacity}`;
+                if (index === lastDMIndex && data.color_choice) {
+                    style += `; --message-color: ${data.color_choice.hex_color}`;
+                }
+
+                const speakerClass = msg.type === 'ai' ? 'computer-message' : 'player-message';
+                const messageHtml = `<p class="message ${speakerClass}" style="${style}"><strong>${speaker}${speaker ? ':' : ''}</strong> ${messageContent}</p>`;
+                historyDiv.innerHTML += messageHtml;
+            });
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+
+            if (data.mp3_base64) {
+                if (window.currentAudio) {
+                    window.currentAudio.pause();
+                }
+                // Wait for ambient sound to finish before playing voice
+                await ambiencePromise;
+                window.currentAudio = new Audio('data:audio/mp3;base64,' + data.mp3_base64);
+                window.currentAudio.playbackRate = document.getElementById('voice_speed').value;
+                window.currentAudio.play().catch(err => {
+                    console.error('Error playing audio:', err);
+                });
+            }
+
+            const choicesResponse = await fetch('/generate_choices', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            const choicesData = await choicesResponse.json();
+
+            const choicesDiv = document.getElementById('choices');
+            choicesDiv.innerHTML = '';
+            
+            choicesData.choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.className = 'choice-button';
+                button.textContent = choice.button_text;
+                button.title = choice.choice;
+                button.style.backgroundColor = choice.hex_color;
+                button.innerHTML = `${choice.emoji} ${choice.button_text}`;
+                button.setAttribute('data-tooltip', choice.choice);
+                button.addEventListener('click', () => makeChoice(choice.choice));
+                choicesDiv.appendChild(button);
+            });
+        }
+
+        makeChoice('');
+    </script>
+</body>
+</html>

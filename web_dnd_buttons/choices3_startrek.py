@@ -4,7 +4,7 @@ from typing import TypedDict, List
 import json
 from typing import Literal
 
-from gtts import gTTS
+from TTS.api import TTS
 import base64
 import io
 
@@ -51,7 +51,7 @@ your character would do given Starfleet protocols and regulations.
 You are only able to describe what you would do. You cannot describe what other crew members do or what happens in the story, other than what your character does.
 The Mission Controller will tell you what happens. You only choose what you do.
 
-Use phrases like "I scan the area with my tricorder", "I hail the alien vessel", "I modify the deflector dish", "I raise shields", etc. You are describing your behavior and actions. You can't say anything about what other characters do or what happens in the story, other than what your character does.
+Use phrases like "I scan the area", "I hail the alien vessel", "I modify the deflector dish", "I raise shields", etc. You are describing your behavior and actions. You can't say anything about what other characters do or what happens in the story, other than what your character does.
 """
 
 abcs = "abcdefghijklmnopqrstuvwxyz"
@@ -116,7 +116,7 @@ class DMDescription(TypedDict):
     location: str
     enemies: list[str]
     treasures: list[str]
-    ambient_sounds: list[str]
+    ambient_sounds: Literal["transporter beam", "red alert", "door swoosh", "phaser fire", "warp engine", "computer beep", "tricorder scan", "communicator chirp"]
     ambient_light: Literal["dark", "dim", "bright"]
     # description: str
 
@@ -148,7 +148,7 @@ class StoryState(TypedDict):
 
 
 class ColorChoice(TypedDict):
-    hex_color: Literal["#00000011", "#FFFFFF11", "#FF000011", "#00FF0011", "#0000FF11", "#FFFF0011", "#FF00FF11", "#00FFFF11", "#FFA50011", "#80008011", "#00800011", "#80000011", "#80800011", "#00808011", "#4B008211", "#FF450011", "#DA70D611", "#FA807211", "#20B2AA11", "#7B68EE11"]
+    hex_color: Literal["#00000099", "#FFFFFF99", "#FF000099", "#00FF0099", "#0000FF99", "#FFFF0099", "#FF00FF99", "#00FFFF99", "#FFA50099", "#80008099", "#00800099", "#80000099", "#80800099", "#00808099", "#4B008299", "#FF450099", "#DA70D699", "#FA807299", "#20B2AA99", "#7B68EE99"]
 
 story_state = None
 
@@ -186,7 +186,7 @@ class GenerateRequest(BaseModel):
 
 @app.get("/")
 async def root():
-    with open("public/index.html") as f:
+    with open("public/index_startrek.html") as f:
         return HTMLResponse(content=f.read())
 
 @app.post("/generate")
@@ -223,8 +223,16 @@ async def generate(request: GenerateRequest):
         maxspeechlen = 200  # Reduced max length
         mp3_fp = io.BytesIO()
         print(f'generating audio: {player_messages[-1].content[:maxspeechlen]}')
-        tts = gTTS(text=player_messages[-1].content[:maxspeechlen], lang='en', slow=False)
-        tts.write_to_fp(mp3_fp)
+        
+        # Initialize TTS
+        tts = TTS(model_name="tts_models/en/ljspeech/tacotron2-DDC")
+        
+        # Generate audio
+        wav = tts.tts(player_messages[-1].content[:maxspeechlen])
+        
+        # Convert wav to mp3 and write to BytesIO
+        tts.synthesizer.save_wav(wav, mp3_fp)
+        
         print('finished generating audio')
         mp3_fp.seek(0)
         mp3_base64 = base64.b64encode(mp3_fp.read()).decode('utf-8')
