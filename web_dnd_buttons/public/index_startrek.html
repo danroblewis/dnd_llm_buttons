@@ -319,7 +319,7 @@
                     if (soundFile) {
                         const audio = new Audio(soundFile);
                         audio.loop = false;
-                        audio.volume = 0.3;
+                        audio.volume = 0.15;
                         audio.addEventListener('ended', () => resolve());
                         audio.play().catch(err => {
                             console.error('Error playing ambient sound:', err);
@@ -533,12 +533,14 @@
                     window.currentAudio.pause();
                 }
                 // Wait for ambient sound to finish before playing voice
-                await ambiencePromise;
-                window.currentAudio = new Audio('data:audio/mp3;base64,' + data.mp3_base64);
-                window.currentAudio.playbackRate = document.getElementById('voice_speed').value;
-                window.currentAudio.play().catch(err => {
-                    console.error('Error playing audio:', err);
-                });
+                // await ambiencePromise;
+                setTimeout(() => {
+                    window.currentAudio = new Audio('data:audio/mp3;base64,' + data.mp3_base64);
+                    window.currentAudio.playbackRate = document.getElementById('voice_speed').value;
+                    window.currentAudio.play().catch(err => {
+                        console.error('Error playing audio:', err);
+                    });
+                }, 2000)
             }
 
             const choicesResponse = await fetch('/generate_choices', {

@@ -40,6 +40,8 @@ You are the mission controller for a Star Trek: The Next Generation text adventu
 You generate descriptions of the current situation aboard the USS Enterprise-D and provide players with choices.
 
 You have watched every episode of Star Trek: The Next Generation and are familiar with the themes, technology, and elaborate descriptions of the Star Trek universe.
+
+Worf is a Klingon. 
 """
 
 PLAYER_SYSTEM_PROMPT = """
@@ -116,7 +118,7 @@ class DMDescription(TypedDict):
     location: str
     enemies: list[str]
     treasures: list[str]
-    ambient_sounds: Literal["transporter beam", "red alert", "door swoosh", "phaser fire", "warp engine", "computer beep", "tricorder scan", "communicator chirp"]
+    ambient_sounds: Literal["transporter beam", "red alert", "door swoosh", "phaser fire", "warp engine", "computer beep", "tricorder scan", "communicator chirp", "none"] # prefer none unless there's a good reason to play a sound
     ambient_light: Literal["dark", "dim", "bright"]
     # description: str
 
@@ -207,7 +209,7 @@ async def generate(request: GenerateRequest):
         dm_messages.append(AIMessage(content=res.content))
         player_messages.append(AIMessage(content=res.content))
 
-        res = model.with_structured_output(DMDescription).invoke(dm_messages + [HumanMessage(content="Describe the effects of the previous player choice on the situation. Introduce new story elements if warranted. Tie in earlier story elements if it makes sense. Less than 50 words.")])
+        res = model.with_structured_output(DMDescription).invoke(dm_messages + [HumanMessage(content="Describe the effects of the previous player choice on the situation. Introduce new story elements if warranted. Tie in earlier story elements if it makes sense. Less than 50 words. Don't use sounds unless there's a good reason.")])
         dm_desc = res
         dm_messages.append(AIMessage(content=json.dumps(dm_desc)))
 
@@ -220,7 +222,7 @@ async def generate(request: GenerateRequest):
         end_reason = model.invoke(dm_messages + [HumanMessage(content="Write a short 1 or 2 sentence conclusion to the mission.")])
 
     try:
-        maxspeechlen = 200  # Reduced max length
+        maxspeechlen = 500  # Reduced max length
         mp3_fp = io.BytesIO()
         print(f'generating audio: {player_messages[-1].content[:maxspeechlen]}')
         

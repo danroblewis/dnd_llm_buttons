@@ -8,3 +8,4 @@ sox
 pydub
 fastapi
 uvicorn
+TTS
