@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>D&D Text Adventure</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: sans-serif;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .sidebar {
+            width: 300px;
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .sidebar h2 {
+            color: #2c3e50;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .sidebar-section {
+            margin: 10px 0;
+            background: #FFFFFFAA;
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .sidebar-section h3 {
+            color: #2c3e50;
+            margin: 0 0 5px 0;
+            font-size: 1em;
+        }
+        .sidebar-section.highlight {
+            background: #fff3cd;
+            animation: highlightFade 2s forwards;
+        }
+
+        @keyframes highlightFade {
+            0%, 40% {
+                background: #fff3cd;
+            }
+            100% {
+                background: #FFFFFFAA;
+                border: none;
+            }
+        }
+        .pill {
+            background: #3498db;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 2px;
+            font-size: 0.85em;
+        }
+        .pill-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+        .main-content {
+            flex: 1;
+            max-width: 800px;
+        }
+        .history {
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        .choices {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4a4a4a;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #666;
+        }
+        button:disabled {
+            background: #7a8594;
+            cursor: not-allowed;
+            opacity: 0.2;
+        }
+        .choice-button {
+            display: inline-block;
+            flex-grow: 0;
+            min-width: fit-content;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        .choice-button:hover {
+            filter: brightness(110%);
+        }
+        .choice-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.2;
+        }
+        .message {
+            transition: opacity 0.3s;
+            padding: 10px;
+            border-radius: 10px;
+            background: #FFFFFFAA;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .dm-description {
+            background: #FFFFFFAA;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .dm-description h3 {
+            margin-top: 0;
+        }
+        .dm-description ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar" id="story-state">
+            <div class="sidebar-section">
+                <h3>Narrative Beat</h3>
+                <div class="pill" id="narrative-beat"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Conflict Level</h3>
+                <div class="pill" id="conflict-level"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Stakes</h3>
+                <div class="pill" id="stakes"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Character Goals</h3>
+                <div class="pill-list" id="character-goals"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Obstacles</h3>
+                <div class="pill-list" id="obstacles"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Theme</h3>
+                <div class="pill" id="theme"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Symbolism</h3>
+                <div class="pill" id="symbolism"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Tone</h3>
+                <div class="pill" id="tone"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Pacing</h3>
+                <div class="pill" id="pacing"></div>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="voice-speed-container" style="margin: 20px 0; display: none;">
+                <label for="voice-speed">Voice Speed: </label>
+                <input type="range" id="voice_speed" min="0" max="5" value="1.7" step="0.1" style="width: 200px;">
+            </div>
+            <div class="history" id="history"></div>
+            <div class="choices" id="choices"></div>
+        </div>
+    </div>
+
+    <script>
+
+        const ambientSoundMap = {
+            'dripping water': 'https://freesound.org/data/previews/71/71147_1056028-lq.mp3',
+            'howling wind': 'https://freesound.org/data/previews/346/346170_6271661-lq.mp3', 
+            'creaking wood': 'https://freesound.org/data/previews/270/270590_5123851-lq.mp3',
+            'distant thunder': 'https://freesound.org/data/previews/169/169345_2975101-lq.mp3',
+            'crackling fire': 'https://freesound.org/data/previews/390/390535_7255534-lq.mp3',
+            'birds chirping': 'https://freesound.org/data/previews/316/316435_5385832-lq.mp3',
+            'waves crashing': 'https://freesound.org/data/previews/328/328118_5394468-lq.mp3',
+            'leaves rustling': 'https://freesound.org/data/previews/523/523932_11211591-lq.mp3'
+        };
+
+        function updateAmbience(description) {
+            // Update background gradient based on ambient light
+            let gradientColor1, gradientColor2;
+            switch(description.ambient_light?.toLowerCase()) {
+                case 'dark':
+                    gradientColor1 = '#1a1a1a';
+                    gradientColor2 = '#2d2d2d';
+                    break;
+                case 'dim':
+                    gradientColor1 = '#2d2d2d';
+                    gradientColor2 = '#4d4d4d';
+                    break;
+                case 'bright':
+                    gradientColor1 = '#f5f5f5';
+                    gradientColor2 = '#e0e0e0';
+                    break;
+                default:
+                    gradientColor1 = '#4d4d4d';
+                    gradientColor2 = '#666666';
+            }
+            
+            document.body.style.background = `linear-gradient(135deg, ${gradientColor1}, ${gradientColor2})`;
+            document.body.style.transition = 'background 1s ease';
+
+            // Play ambient sounds
+            if (description.ambient_sounds) {
+                description.ambient_sounds.forEach(sound => {
+                    const soundFile = ambientSoundMap[sound.toLowerCase()];
+                    if (soundFile) {
+                        const audio = new Audio(soundFile);
+                        audio.loop = true;
+                        audio.volume = 0.3;
+                        audio.play().catch(err => console.error('Error playing ambient sound:', err));
+                    }
+                });
+            }
+        }
+
+        function updateStoryState(storyState) {
+            const colorMappings = {
+                narrativeBeat: {
+                    'exposition': '#3498db', // Blue
+                    'rising action': '#e67e22', // Orange 
+                    'climax': '#e74c3c', // Red
+                    'falling action': '#9b59b6', // Purple
+                    'resolution': '#2ecc71' // Green
+                },
+                conflictLevel: {
+                    'low': '#4CAF50', // Green
+                    'medium': '#FFA500', // Orange
+                    'high': '#f44336', // Red
+                    'critical': '#9C27B0', // Purple
+                    'catastrophic': '#000000' // Black
+                },
+                tone: {
+                    'heroic': '#FFD700', // Gold
+                    'tragic': '#4B0082', // Indigo
+                    'comedic': '#FF69B4', // Hot Pink
+                    'mysterious': '#483D8B', // Dark Slate Blue
+                    'horrific': '#8B0000', // Dark Red
+                    'romantic': '#FF1493', // Deep Pink
+                    'epic': '#B8860B' // Dark Goldenrod
+                },
+                pacing: {
+                    'slow': '#2E8B57', // Sea Green
+                    'moderate': '#4169E1', // Royal Blue
+                    'fast': '#FF4500', // Orange Red
+                    'frantic': '#DC143C' // Crimson
+                }
+            };
+
+
+            function updateElement(elementId, value, colorType, defaultColor = '#3498db') {
+                const element = document.getElementById(elementId);
+                element.textContent = value;
+                element.style.background = defaultColor;
+
+                if (element.textContent !== element.dataset.lastValue) {
+                    element.parentElement.classList.add('highlight');
+                    element.dataset.lastValue = element.textContent;
+                }
+                
+                if (colorMappings[colorType] && colorMappings[colorType][value]) {
+                    element.style.background = colorMappings[colorType][value];
+                }
+            }
+
+            updateElement('narrative-beat', storyState.narrative_beat, 'narrativeBeat');
+            updateElement('conflict-level', storyState.conflict_level, 'conflictLevel');
+            updateElement('stakes', storyState.stakes);
+
+            function renderPillList(containerId, items) {
+                const container = document.getElementById(containerId);
+                const lastItems = container.dataset.lastItems ? JSON.parse(container.dataset.lastItems) : [];
+                container.innerHTML = '';
+                items.forEach(item => {
+                    const pill = document.createElement('div');
+                    pill.className = 'pill';
+                    pill.textContent = item;
+                    if (!lastItems.includes(item)) {
+                        pill.classList.add('highlight');
+                    }
+                    container.appendChild(pill);
+                });
+                container.dataset.lastItems = JSON.stringify(items);
+            }
+
+            renderPillList('character-goals', storyState.character_goals);
+            renderPillList('obstacles', storyState.obstacles);
+
+            updateElement('theme', storyState.theme);
+            updateElement('symbolism', storyState.symbolism);
+            updateElement('tone', storyState.tone, 'tone');
+            updateElement('pacing', storyState.pacing, 'pacing');
+
+            // Remove highlights after a delay
+            setTimeout(() => {
+                document.querySelectorAll('.highlight').forEach(el => {
+                    el.classList.remove('highlight');
+                });
+            }, 5000);
+        }
+
+        function renderDMDescription(description) {
+            try {
+                // Update ambient effects when rendering description
+                updateAmbience(description);
+                
+                return `
+                    <div class="dm-description">
+                        <h3>Location: ${description.location}</h3>
+                        <p><strong>Ambient Light:</strong> ${description.ambient_light}</p>
+                        <p><strong>Enemies:</strong> ${description.enemies.map(e => `<span>${e}</li>`).join('')}</p>
+                        <p><strong>Treasures:</strong></p>
+                        <ul>${description.treasures.map(t => `<li>${t}</li>`).join('')}</ul>
+                        <p><strong>Ambient Sounds:</strong> ${description.ambient_sounds.map(s => `<span class="ambient-sound">${s}</span>`).join('')}</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error rendering DM description:', error);
+                return '<div class="dm-description">Error rendering description</div>';
+            }
+        }
+
+        function showEndModal(end_reason) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 0 20px rgba(0,0,0,0.3);
+                z-index: 1000;
+                text-align: center;
+            `;
+            modal.innerHTML = `
+                <h2>The End</h2>
+                <p>Your adventure has come to an end.</p>
+                <p>${end_reason}</p>
+            `;
+            document.body.appendChild(modal);
+
+            // Disable all interactive elements
+            document.querySelectorAll('button, input').forEach(el => el.disabled = true);
+            document.getElementById('choices').style.display = 'none';
+        }
+
+        async function makeChoice(choice) {
+            // Disable all buttons while request is in flight
+            const buttons = document.querySelectorAll('#choices button');
+            buttons.forEach(button => button.disabled = true);
+
+            // First make the generate call
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: choice
+                })
+            });
+            const data = await response.json();
+            
+            // Check if this is the end
+            if (data.end && data.end.answer === true) {
+                showEndModal(data.end_reason);
+                return;
+            }
+
+            // Update story state
+            if (data.story_state) {
+                updateStoryState(data.story_state);
+            }
+
+            // Update history
+            const historyDiv = document.getElementById('history');
+            historyDiv.innerHTML = ''; // Clear all history
+            // Only show last 100 lines
+            const historyLines = data.history.slice(-100);
+            
+            const lastDMIndex = historyLines.findLastIndex(msg => msg.type === 'ai');
+
+            historyLines.forEach((msg, index) => {
+                const maxlen = 500;
+                const speaker = msg.type === 'ai' ? 'DM' : 'You';
+                const opacity = 0.4 + ((index / historyLines.length) * 0.6); // Ranges from 0.4 to 1.0
+                
+                let messageContent;
+                try {
+                    if (msg.location && msg.enemies && msg.treasures) {
+                        messageContent = renderDMDescription(msg);
+                    } else {
+                        messageContent = msg.content ? (msg.content.length > maxlen ? msg.content.slice(0,maxlen) + "..." : msg.content) : '';
+                    }
+                } catch (e) {
+                    messageContent = msg.content ? (msg.content.length > maxlen ? msg.content.slice(0,maxlen) + "..." : msg.content) : '';
+                }
+
+                let style = `opacity: ${opacity}`;
+                // Add background color to last DM message
+                if (index === lastDMIndex && data.color_choice) {
+                    style += `; background-color: ${data.color_choice.hex_color}`;
+                    // Check if background color is dark and set text color to white if needed
+                    const rgb = data.color_choice.hex_color.match(/[A-Za-z0-9]{2}/g)
+                        .map(v => parseInt(v, 16));
+                    const brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
+                    if (brightness < 128) {
+                        style += '; color: white';
+                    }
+                }
+
+                if (messageContent.includes('<')) {
+                    historyDiv.innerHTML += messageContent;
+                    return;
+                }
+
+                const messageHtml = `<p class="message" style="${style}"><strong>${speaker}:</strong> ${messageContent}</p>`;
+                historyDiv.innerHTML += messageHtml;
+            });
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+
+            // Play audio if available
+            if (data.mp3_base64) {
+                if (window.currentAudio) {
+                    window.currentAudio.pause();
+                }
+                window.currentAudio = new Audio('data:audio/mp3;base64,' + data.mp3_base64);
+                window.currentAudio.playbackRate = document.getElementById('voice_speed').value;
+                window.currentAudio.play().catch(err => {
+                    console.error('Error playing audio:', err);
+                });
+            }
+
+            // Now make the generate_choices call
+            const choicesResponse = await fetch('/generate_choices', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            const choicesData = await choicesResponse.json();
+
+            // Update choices by replacing existing ones
+            const choicesDiv = document.getElementById('choices');
+            choicesDiv.innerHTML = '';
+            
+            choicesData.choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.className = 'choice-button';
+                button.textContent = choice.button_text;
+                button.title = choice.choice; // Use full choice text as tooltip
+                button.style.backgroundColor = choice.hex_color;
+                button.innerHTML = `${choice.emoji} ${choice.button_text}`;
+                button.setAttribute('data-tooltip', choice.choice); // Add tooltip attribute
+                button.addEventListener('click', () => makeChoice(choice.choice));
+                choicesDiv.appendChild(button);
+            });
+        }
+
+        makeChoice('');
+    </script>
+</body>
+</html>
