@@ -106,3 +106,40 @@ ToDo Next:
 
 
 
+Probably the right thing to do is have a "Summary" struct.
+Have the LLM generate the "Summary" regularly.
+And only retain one instance of the "Summary" in the message history. 
+
+
+
+
+A good way to extract value from an LLM is to have it produce structured output and iterate on the structured output.
+The LLM will think and it will try things and it will coalesce the text it receives and the text it generates into 
+the structured output, iteratively updating it through several steps. 
+The structured output can be described in a way that reflects the information we want to extract, but instead of 
+asking it to extract the information in one-shot, we can ask it to refine the structure.
+Is there a way we could write a class that managing a struct? 
+Obviously the struct would be extractable with a get_struct() function or something, but given that it updates the 
+struct, it could also emit events when the struct has been changed. 
+
+
+
+1. prepare the LLM with a long message history, primarily as a way to describe context before generation, not so much more giving the LLM logic to follow.
+2. create a typed struct that represents the state of the task I'm trying to solve
+3. have the LLM generate the struct using with_structured_output, retry until it works
+4. when the LLM generates the state struct, it gets added the end of the message list, but the struct only exists once in the list. when a new state struct is added, all previous versions get removed.
+5. when other things in the system change, the message list for this LLM gets updated and the status struct gets changed.
+6. wrap all of this in a class. emit an event when struct data changes.
+
+
+
+
+
+
+
+maybe the Structuralizer instances should "register" for message updates of other streams
+and the Structuralizer would get set up with Filters, instead of choosing individual messages to send
+sometimes it makes sense to divert the messages though
+
+
+
